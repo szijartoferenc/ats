@@ -6,3 +6,4 @@ docx2txt
 plotly
 python-docx
 PyMuPDF
+openpyxl
