@@ -8,12 +8,15 @@ import base64
 from io import BytesIO
 import re
 import requests
+from dotenv import load_dotenv
+import os
 
 # 🌐 PAGE CONFIG
 st.set_page_config(page_title="Intelligent ATS", layout="wide")
 
 # ✅ OpenRouter API kulcs konfiguráció
-API_KEY = "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"
+load_dotenv()  # Betöltjük az .env fájlt, ha használod
+API_KEY = os.getenv("OPENROUTER_API_KEY", "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")  # Ha nem .env-ből jön, akkor itt is megadhatod
 
 # 📄 DOCX feldolgozás
 def extract_text_from_docx(file):
@@ -70,14 +73,18 @@ def generate_response_from_openrouter(prompt):
             result = response.json()
             return result["choices"][0]["message"]["content"].strip()
         else:
-            return f"❌ Hiba: {response.status_code} - {response.text}"
+            st.error(f"❌ Hiba: {response.status_code} - {response.text}")
+            return None
     except Exception as e:
-        return f"❌ Kivétel: {str(e)}"
+        st.error(f"❌ Kivétel: {str(e)}")
+        return None
 
 def extract_industry_keywords(job_desc):
     prompt = f"Extract 10 most relevant keywords for this job description:\n{job_desc}"
     response = generate_response_from_openrouter(prompt)
-    return [kw.strip() for kw in response.split(",") if kw.strip()]
+    if response:
+        return [kw.strip() for kw in response.split(",") if kw.strip()]
+    return []
 
 # 📤 Export segéd
 def get_download_link(df, filetype="csv"):
@@ -122,6 +129,12 @@ if st.button("Analyze") and resume_file and job_desc:
     # 🔍 Iparági kulcsszavak generálása
     industry_keywords = extract_industry_keywords(job_desc)
 
+    if not industry_keywords:
+        st.warning("No industry keywords were extracted.")
+    else:
+        st.subheader("Extracted Industry Keywords")
+        st.write(industry_keywords)
+
     # 🧠 AI értékelés
     prompt = f"""
     You are an AI ATS.
@@ -133,8 +146,9 @@ if st.button("Analyze") and resume_file and job_desc:
     """
     response_text = generate_response_from_openrouter(prompt)
 
-    st.subheader("AI Feedback")
-    st.markdown(response_text)
+    if response_text:
+        st.subheader("AI Feedback")
+        st.markdown(response_text)
 
     # 📊 Kulcsszavak elemzése
     density = get_keyword_density(resume_text, industry_keywords)
