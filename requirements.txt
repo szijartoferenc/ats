@@ -8,3 +8,4 @@ PyMuPDF
 openpyxl
 pandas
 requests
+cohere 
