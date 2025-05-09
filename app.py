@@ -64,7 +64,7 @@ def highlight_keywords(text, keywords):
 def generate_response_from_cohere(prompt):
     try:
         response = co.generate(
-            model='xlarge',  # Válaszd a megfelelő modellt, pl. xlarge
+            model='base',  # Válaszd a megfelelő modellt, pl. base
             prompt=prompt,
             max_tokens=500,
             temperature=0.7,
