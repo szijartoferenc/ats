@@ -6,4 +6,5 @@ plotly
 python-docx
 PyMuPDF
 openpyxl
-openrouter-client 
+pandas
+requests
