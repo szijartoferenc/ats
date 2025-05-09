@@ -23,7 +23,7 @@ def extract_text_from_docx(file):
     doc = Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
 
-# 📄 PDF feldolgozás és előnézet
+# 📄 PDF feldolgozás
 def extract_text_from_pdf(file):
     with fitz.open(stream=file.read(), filetype="pdf") as doc:
         return "\n".join(page.get_text() for page in doc)
@@ -42,7 +42,7 @@ def get_keyword_density(text, keywords):
     words = text.lower().split()
     return {kw: words.count(kw.lower()) for kw in keywords}
 
-# 🤖 OpenRouter API hívás
+# 🤖 OpenRouter válasz
 def generate_response_from_openrouter(prompt):
     headers = {
         "Authorization": f"Bearer {API_KEY}",
@@ -50,7 +50,7 @@ def generate_response_from_openrouter(prompt):
     }
 
     data = {
-        "model": "openrouter/mistral-7b",  # ✔️ Valós modellnév
+        "model": "mistral-7b",  # Aktuálisan elérhető modell OpenRouter-en
         "messages": [{"role": "user", "content": prompt}]
     }
 
@@ -67,10 +67,9 @@ def generate_response_from_openrouter(prompt):
             st.error(f"❌ OpenRouter API hiba: {response.status_code} - {response.text}")
             return None
     except Exception as e:
-        st.error(f"❌ Kivétel történt: {str(e)}")
+        st.error(f"❌ API kivétel: {str(e)}")
         return None
 
-# 🔍 Kulcsszavak kinyerése
 def extract_industry_keywords(job_desc):
     prompt = f"Extract 10 most relevant keywords for this job description:\n{job_desc}"
     response = generate_response_from_openrouter(prompt)
@@ -78,7 +77,7 @@ def extract_industry_keywords(job_desc):
         return [kw.strip() for kw in response.split(",") if kw.strip()]
     return []
 
-# 📤 Export segéd
+# 📤 Letöltési link generálása
 def get_download_link(df, filetype="csv"):
     towrite = BytesIO()
     if filetype == "csv":
@@ -91,14 +90,17 @@ def get_download_link(df, filetype="csv"):
         ext = "xlsx"
     towrite.seek(0)
     b64 = base64.b64encode(towrite.read()).decode()
-    return f'<a href="data:{mime};base64,{b64}" download="report.{ext}">📥 Download as {ext.upper()}</a>'
+    href = f'<a href="data:{mime};base64,{b64}" download="report.{ext}">📥 Download as {ext.upper()}</a>'
+    return href
 
 # 📄 Feltöltés
 st.title("Upload Resume and Job Description")
 resume_file = st.file_uploader("Upload Resume (PDF/DOCX/TXT)", type=["pdf", "docx", "txt"])
 job_desc = st.text_area("Paste Job Description")
 
-# 🚀 Elemzés indítása
+if st.button("Clear Job Description"):
+    job_desc = ""
+
 if st.button("Analyze") and resume_file and job_desc:
     file_bytes = resume_file.read()
     resume_text = ""
@@ -121,7 +123,6 @@ if st.button("Analyze") and resume_file and job_desc:
         st.subheader("Extracted Industry Keywords")
         st.write(industry_keywords)
 
-    # 🧠 AI értékelés
     prompt = f"""
     You are an AI ATS.
     Compare this resume: ```{resume_text}``` 
@@ -136,47 +137,50 @@ if st.button("Analyze") and resume_file and job_desc:
         st.subheader("AI Feedback")
         st.markdown(response_text)
 
-        # 📊 Kulcsszavak elemzése
-        density = get_keyword_density(resume_text, industry_keywords)
-        if not density:
-            st.warning("No keywords found to display.")
-        else:
-            df = pd.DataFrame(list(density.items()), columns=["Keyword", "Count"])
-            st.subheader("Keyword Density")
-            st.dataframe(df)
-            st.markdown(get_download_link(df, "csv"), unsafe_allow_html=True)
-            st.markdown(get_download_link(df, "excel"), unsafe_allow_html=True)
+    density = get_keyword_density(resume_text, industry_keywords)
+    if not density:
+        st.warning("No keywords found to display.")
+    else:
+        df = pd.DataFrame(list(density.items()), columns=["Keyword", "Count"])
+        st.subheader("Keyword Density")
+        st.dataframe(df)
+        st.markdown(get_download_link(df, "csv"), unsafe_allow_html=True)
+        st.markdown(get_download_link(df, "excel"), unsafe_allow_html=True)
 
-            st.subheader("Keyword Usage Chart")
-            fig = px.bar(df, x="Keyword", y="Count", title="Keyword Usage")
-            st.plotly_chart(fig)
+        st.subheader("Keyword Usage Chart")
+        fig = px.bar(df, x="Keyword", y="Count", title="Keyword Usage")
+        st.plotly_chart(fig)
 
-        # 🕒 Score history
-        if "score_history" not in st.session_state:
-            st.session_state["score_history"] = []
+    # 🕒 Score history
+    if "score_history" not in st.session_state:
+        st.session_state["score_history"] = []
 
-        score_line = re.search(r"(\d{1,3})\s*/\s*100", response_text)
-        score = int(score_line.group(1)) if score_line else 0
+    score_line = re.search(r"(\d{1,3})\s*/\s*100", response_text or "")
+    score = int(score_line.group(1)) if score_line else 0
 
-        st.session_state["score_history"].append({
-            "Job": job_desc[:30] + "...",
-            "Score": score
-        })
+    st.session_state["score_history"].append({
+        "Job": job_desc[:30] + "...",
+        "Score": score
+    })
 
-        score_df = pd.DataFrame(st.session_state["score_history"])
+    score_df = pd.DataFrame(st.session_state["score_history"])
 
-        st.subheader("Score Comparison")
-        if not score_df.empty:
-            fig_score = px.bar(
-                score_df,
-                x="Job",
-                y="Score",
-                color="Score",
-                color_continuous_scale="Blues",
-                title="Suitability Score per Job"
-            )
-            fig_score.update_layout(yaxis_range=[0, 100])
-            st.plotly_chart(fig_score)
+    st.subheader("Score Comparison")
+    if score_df.empty:
+        st.warning("No scores to compare.")
+    else:
+        fig_score = px.bar(
+            score_df,
+            x="Job",
+            y="Score",
+            color="Score",
+            color_continuous_scale="Blues",
+            title="Suitability Score per Job"
+        )
+        fig_score.update_layout(yaxis_range=[0, 100])
+        st.plotly_chart(fig_score)
 
-# ℹ️ Oldalsáv információ
+# ℹ️ Oldalsáv és lábléc
 st.sidebar.info("Upload your resume and compare it with job postings using AI.")
+st.markdown("---")
+st.markdown("© 2025 – Built with ❤️ using Streamlit and OpenRouter")
