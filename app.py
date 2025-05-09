@@ -69,7 +69,7 @@ def generate_response_from_cohere(prompt):
             prompt=prompt,
             max_tokens=500  # Beállítható, hogy hány tokent használjon
         )
-        return response.text.strip()
+        return response.generations[0].text.strip()  # A válasz szövegének hozzáférése
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
@@ -183,4 +183,3 @@ if st.button(t("Analyze", "Elemzés indítása")) and resume_file and job_desc:
 # ℹ️ Oldalsáv információ
 st.sidebar.info(t("Upload your resume and compare it with job postings using AI.",
                   "Töltsd fel az önéletrajzod, és hasonlítsd össze álláshirdetésekkel mesterséges intelligenciával."))
-
