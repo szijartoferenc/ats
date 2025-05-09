@@ -1,24 +1,21 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
 import cohere
-from docx import Document
-import fitz  # PyMuPDF
-from PIL import Image
-import base64
-from io import BytesIO
-import re
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 # 🌐 PAGE CONFIG
 st.set_page_config(page_title="Intelligent ATS", layout="wide")
 
-# Betöltjük a környezeti változókat a .env fájlból
+# ✅ Környezeti változók betöltése
 load_dotenv()
 
-# ✅ Cohere API kulcs konfiguráció
-cohere_api_key = os.getenv('COHERE_API_KEY')  # API kulcs betöltése a .env-ből
+# ✅ Google API kulcs konfiguráció (ha szükséges)
+# genai.configure(api_key=os.getenv("GENAI_API_KEY"))
+# model_name = "models/gemini-1.5-pro-latest"
+# llm = genai.GenerativeModel(model_name)
+
+# ✅ Cohere API kulcs beállítása
+cohere_api_key = os.getenv("COHERE_API_KEY")  # .env-ből
 co = cohere.Client(cohere_api_key)  # Cohere kliens inicializálása
 
 # 🌗 Dark/Light mód
@@ -31,11 +28,13 @@ t = lambda en, hu: hu if language == "Magyar" else en
 
 # 📄 DOCX feldolgozás
 def extract_text_from_docx(file):
+    from docx import Document
     doc = Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
 
 # 📄 PDF feldolgozás és előnézet
 def extract_text_from_pdf(file):
+    import fitz  # PyMuPDF
     with fitz.open(stream=file.read(), filetype="pdf") as doc:
         return "\n".join(page.get_text() for page in doc)
 
@@ -61,25 +60,25 @@ def highlight_keywords(text, keywords):
     return text
 
 # 🤖 Cohere válasz
+
 def generate_response_from_cohere(prompt):
     try:
         response = co.generate(
-            model='base',  # Válaszd a megfelelő modellt, pl. base
+            model="command",  # Generatív modell neve
             prompt=prompt,
-            max_tokens=500,
-            temperature=0.7,
+            max_tokens=500  # Beállítható, hogy hány tokent használjon
         )
-        return response.generations[0].text.strip()
+        return response.text.strip()
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-# Iparági kulcsszavak kivonása
 def extract_industry_keywords(job_desc):
     prompt = f"Extract 10 most relevant keywords for this job description:\n{job_desc}"
     response = generate_response_from_cohere(prompt)
     return [kw.strip() for kw in response.split(",") if kw.strip()]
 
 # 📤 Export segéd
+
 def get_download_link(df, filetype="csv"):
     towrite = BytesIO()
     if filetype == "csv":
