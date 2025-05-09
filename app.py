@@ -1,6 +1,14 @@
 import streamlit as st
 import cohere
 import os
+import pandas as pd
+import plotly.express as px
+from docx import Document
+import fitz  # PyMuPDF
+from PIL import Image
+import base64
+from io import BytesIO
+import re
 from dotenv import load_dotenv
 
 # 🌐 PAGE CONFIG
@@ -8,11 +16,6 @@ st.set_page_config(page_title="Intelligent ATS", layout="wide")
 
 # ✅ Környezeti változók betöltése
 load_dotenv()
-
-# ✅ Google API kulcs konfiguráció (ha szükséges)
-# genai.configure(api_key=os.getenv("GENAI_API_KEY"))
-# model_name = "models/gemini-1.5-pro-latest"
-# llm = genai.GenerativeModel(model_name)
 
 # ✅ Cohere API kulcs beállítása
 cohere_api_key = os.getenv("COHERE_API_KEY")  # .env-ből
@@ -28,13 +31,11 @@ t = lambda en, hu: hu if language == "Magyar" else en
 
 # 📄 DOCX feldolgozás
 def extract_text_from_docx(file):
-    from docx import Document
     doc = Document(file)
     return "\n".join([para.text for para in doc.paragraphs])
 
 # 📄 PDF feldolgozás és előnézet
 def extract_text_from_pdf(file):
-    import fitz  # PyMuPDF
     with fitz.open(stream=file.read(), filetype="pdf") as doc:
         return "\n".join(page.get_text() for page in doc)
 
@@ -182,3 +183,4 @@ if st.button(t("Analyze", "Elemzés indítása")) and resume_file and job_desc:
 # ℹ️ Oldalsáv információ
 st.sidebar.info(t("Upload your resume and compare it with job postings using AI.",
                   "Töltsd fel az önéletrajzod, és hasonlítsd össze álláshirdetésekkel mesterséges intelligenciával."))
+
